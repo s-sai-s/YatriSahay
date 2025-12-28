@@ -1,0 +1,53 @@
+{
+  "name": "YatriSahay - Travel Companion",
+  "short_name": "YatriSahay",
+  "description": "Your travel companion for cab booking with Google Maps integration",
+  "start_url": "/?utm_source=pwa",
+  "display": "standalone",
+  "background_color": "#667eea",
+  "theme_color": "#4285f4",
+  "orientation": "portrait",
+  "categories": ["travel", "navigation", "utilities"],
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ],
+  "scope": "/",
+  "prefer_related_applications": false,
+  "share_target": {
+    "action": "/",
+    "method": "GET",
+    "enctype": "application/x-www-form-urlencoded",
+    "params": {
+      "title": "maps_url",
+      "text": "maps_url",
+      "url": "maps_url"
+    }
+  },
+  "shortcuts": [
+    {
+      "name": "Open Maps",
+      "short_name": "Maps",
+      "description": "Open Google Maps",
+      "url": "/?action=maps",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
+    }
+  ],
+  "protocol_handlers": [
+    {
+      "protocol": "web+yatrisahay",
+      "url": "/?maps_url=%s"
+    }
+  ]
+}
+
