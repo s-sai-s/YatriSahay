@@ -9,12 +9,25 @@ const axios = require('axios');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Resolve paths correctly for both local and Vercel environments
+// In Vercel, __dirname points to the function directory, so we use process.cwd()
+const getPublicPath = () => {
+  if (process.env.VERCEL) {
+    // In Vercel, files are in the project root
+    return path.join(process.cwd(), 'public');
+  }
+  // Local development
+  return path.join(__dirname, 'public');
+};
+
+const publicPath = getPublicPath();
+
 // Middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // Serve static files with proper cache headers
-app.use(express.static('public', {
+app.use(express.static(publicPath, {
   maxAge: '1d',
   etag: true,
   lastModified: true
@@ -61,14 +74,19 @@ const callbackURL = getCallbackURL();
 console.log('OAuth Callback URL configured:', callbackURL);
 console.log('Make sure this matches EXACTLY in Google Cloud Console redirect URIs');
 
-passport.use(new GoogleStrategy({
-  clientID: process.env.GOOGLE_CLIENT_ID,
-  clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-  callbackURL: callbackURL
-}, (accessToken, refreshToken, profile, done) => {
-  // Store user profile in session
-  return done(null, profile);
-}));
+// Initialize Passport Google Strategy with error handling
+if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {
+  console.error('WARNING: GOOGLE_CLIENT_ID or GOOGLE_CLIENT_SECRET not set. OAuth will not work.');
+} else {
+  passport.use(new GoogleStrategy({
+    clientID: process.env.GOOGLE_CLIENT_ID,
+    clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+    callbackURL: callbackURL
+  }, (accessToken, refreshToken, profile, done) => {
+    // Store user profile in session
+    return done(null, profile);
+  }));
+}
 
 // Passport serialization
 passport.serializeUser((user, done) => {
@@ -177,12 +195,22 @@ app.get('/login', (req, res) => {
   if (req.isAuthenticated()) {
     return res.redirect('/');
   }
-  res.sendFile(path.join(__dirname, 'public', 'login.html'));
+  res.sendFile(path.join(publicPath, 'login.html'), (err) => {
+    if (err) {
+      console.error('Error serving login.html:', err);
+      res.status(500).send('Error loading login page');
+    }
+  });
 });
 
 // Serve home page
 app.get('/', isAuthenticated, (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+  res.sendFile(path.join(publicPath, 'index.html'), (err) => {
+    if (err) {
+      console.error('Error serving index.html:', err);
+      res.status(500).send('Error loading home page');
+    }
+  });
 });
 
 // Handle deep links - redirect Google Maps URLs to home with query params
@@ -209,7 +237,7 @@ app.get('/open', isAuthenticated, (req, res) => {
 
 // Serve service worker with proper headers
 app.get('/sw.js', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'sw.js'), {
+  res.sendFile(path.join(publicPath, 'sw.js'), {
     headers: { 
       'Content-Type': 'application/javascript',
       'Cache-Control': 'no-cache'
@@ -219,11 +247,20 @@ app.get('/sw.js', (req, res) => {
 
 // Serve manifest.json with proper content type
 app.get('/manifest.json', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'manifest.json'), {
+  res.sendFile(path.join(publicPath, 'manifest.json'), {
     headers: { 
       'Content-Type': 'application/manifest+json',
       'Cache-Control': 'public, max-age=3600'
     }
+  });
+});
+
+// Global error handler
+app.use((err, req, res, next) => {
+  console.error('Unhandled error:', err);
+  res.status(500).json({ 
+    error: 'Internal server error',
+    message: process.env.NODE_ENV === 'development' ? err.message : 'Something went wrong'
   });
 });
 
@@ -232,6 +269,7 @@ app.get('/manifest.json', (req, res) => {
 if (!process.env.VERCEL) {
   app.listen(PORT, () => {
     console.log(`Server running on http://localhost:${PORT}`);
+    console.log(`Public path: ${publicPath}`);
   });
 }
 
